@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Godot Context Packer — Empaquetador Local para IA</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuentes Inter y JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        godot: {
+                            bg: '#1e222a',
+                            panel: '#282c34',
+                            surface: '#21252b',
+                            border: '#363d49',
+                            blue: '#478cbf',
+                            blueHover: '#5aa0d6',
+                            blueDark: '#366f9c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Scrollbars personalizados estilo Godot */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e222a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3e4552;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #478cbf;
+        }
+        /* Animación suave para el Toast */
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .toast-enter {
+            animation: slideUpFade 0.25s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-godot-bg text-slate-200 font-sans min-h-screen flex flex-col selection:bg-godot-blue/40 selection:text-white">
+
+    <!-- Header -->
+    <header class="bg-godot-panel border-b border-godot-border sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <!-- Icono inspirado en Godot -->
+                <div class="w-10 h-10 rounded-xl bg-godot-blue/20 border border-godot-blue/40 flex items-center justify-center text-godot-blue shadow-inner">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Godot Context Packer
+                        <span class="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-godot-blue/20 text-godot-blue border border-godot-blue/30">v1.0</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Empaqueta tu proyecto de Godot en un único archivo listo para IA</p>
+                </div>
+            </div>
+
+            <!-- Insignia de Privacidad -->
+            <div class="flex items-center gap-2 text-xs text-emerald-300/90 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1.5 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <span>100% local y privado en tu navegador</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Zona de Selección de Carpeta y Métricas -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- Selector de Carpeta -->
+            <div class="lg:col-span-5 bg-godot-panel border border-godot-border rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                <div>
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">1. Seleccionar Proyecto</h2>
+                    <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden" />
+                    
+                    <button id="selectFolderBtn" type="button" class="w-full group relative flex flex-col items-center justify-center gap-2.5 p-6 rounded-xl border-2 border-dashed border-godot-blue/50 bg-godot-bg/60 hover:bg-godot-blue/10 hover:border-godot-blue transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-godot-blue">
+                        <div class="w-12 h-12 rounded-full bg-godot-blue/20 text-godot-blue flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                <line x1="12" y1="11" x2="12" y2="17"></line>
+                                <line x1="9" y1="14" x2="15" y2="14"></line>
+                            </svg>
+                        </div>
+                        <div class="text-center">
+                            <span class="block text-base font-semibold text-white group-hover:text-godot-blueHover transition-colors">Elegir carpeta raíz de Godot</span>
+                            <span id="selectedFolderName" class="block text-xs text-slate-400 mt-1">Haz clic para seleccionar la carpeta con project.godot</span>
+                        </div>
+                    </button>
+                </div>
+
+                <p class="text-[11px] text-slate-400 mt-3 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-godot-blue shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    Tu navegador puede pedir permiso para leer los archivos; ningún dato sale de tu equipo.
+                </p>
+            </div>
+
+            <!-- Panel de Métricas en Tiempo Real -->
+            <div class="lg:col-span-7 bg-godot-panel border border-godot-border rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Métricas del Contexto</h2>
+                    <div id="statusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-700/60 text-slate-300 border border-slate-600">
+                        <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+                        <span id="statusText">Esperando proyecto...</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <!-- Archivos incluidos -->
+                    <div class="bg-godot-bg border border-godot-border rounded-xl p-4">
+                        <span class="text-xs text-slate-400 block">Archivos incluidos</span>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span id="metricFiles" class="text-2xl font-bold text-white font-mono">0</span>
+                            <span id="metricTotalDetected" class="text-xs text-slate-500">/ 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Tamaño total -->
+                    <div class="bg-godot-bg border border-godot-border rounded-xl p-4">
+                        <span class="text-xs text-slate-400 block">Tamaño estimado</span>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span id="metricSize" class="text-2xl font-bold text-white font-mono">0 KB</span>
+                        </div>
+                    </div>
+
+                    <!-- Tokens aproximados -->
+                    <div class="bg-godot-bg border border-godot-border rounded-xl p-4">
+                        <span class="text-xs text-slate-400 block">Tokens aprox. (chars / 4)</span>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span id="metricTokens" class="text-2xl font-bold text-godot-blue font-mono">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de progreso de tokens -->
+                <div class="mt-4">
+                    <div class="flex justify-between text-[11px] text-slate-400 mb-1.5">
+                        <span>0</span>
+                        <span>100k (Óptimo)</span>
+                        <span>300k+ (Límite recomendado)</span>
+                    </div>
+                    <div class="w-full h-2 bg-godot-bg rounded-full overflow-hidden border border-godot-border">
+                        <div id="tokenProgressBar" class="h-full bg-emerald-500 transition-all duration-300 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filtros Inteligentes -->
+        <section class="bg-godot-panel border border-godot-border rounded-2xl p-5 shadow-lg">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">2. Filtros Inteligentes y Limpieza</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Extensiones -->
+                <div class="lg:col-span-7">
+                    <span class="text-xs font-medium text-slate-300 block mb-2.5">Extensiones incluidas:</span>
+                    <div id="extensionsContainer" class="flex flex-wrap gap-2">
+                        <!-- Generado dinámicamente por JS -->
+                    </div>
+                </div>
+
+                <!-- Opciones Avanzadas -->
+                <div class="lg:col-span-5 flex flex-col justify-center gap-3 border-t lg:border-t-0 lg:border-l border-godot-border pt-4 lg:pt-0 lg:pl-6">
+                    <label class="flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" id="cleanTscnCheckbox" checked class="mt-0.5 w-4 h-4 rounded border-slate-500 bg-godot-bg text-godot-blue focus:ring-godot-blue focus:ring-offset-godot-panel cursor-pointer">
+                        <div>
+                            <span class="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">Limpiador inteligente de .tscn / .tres</span>
+                            <p class="text-xs text-slate-400">Omite líneas serializadas o binarias de más de 500 caracteres (como <code class="text-godot-blue">PackedByteArray</code>) para ahorrar tokens.</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" id="includeAddonsCheckbox" class="mt-0.5 w-4 h-4 rounded border-slate-500 bg-godot-bg text-godot-blue focus:ring-godot-blue focus:ring-offset-godot-panel cursor-pointer">
+                        <div>
+                            <span class="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">Incluir carpeta <code class="text-amber-300/90">addons/</code></span>
+                            <p class="text-xs text-slate-400">Por defecto se ignoran <code class="text-slate-300">.godot</code>, <code class="text-slate-300">.git</code>, <code class="text-slate-300">.import</code>, <code class="text-slate-300">addons</code>, <code class="text-slate-300">__pycache__</code> y <code class="text-slate-300">node_modules</code>.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lista de Archivos + Vista Previa -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Columna Izquierda: Lista Interactiva de Archivos -->
+            <div class="lg:col-span-5 bg-godot-panel border border-godot-border rounded-2xl flex flex-col shadow-lg overflow-hidden h-[540px]">
+                <div class="p-4 border-b border-godot-border space-y-3 bg-godot-surface/50">
+                    <div class="flex items-center justify-between gap-2">
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">3. Archivos Detectados</h2>
+                        <div class="flex items-center gap-1.5">
+                            <button id="selectAllBtn" type="button" class="text-xs px-2.5 py-1 rounded-lg bg-godot-bg hover:bg-godot-blue/20 text-slate-300 hover:text-godot-blue border border-godot-border transition-colors cursor-pointer">Todos</button>
+                            <button id="selectNoneBtn" type="button" class="text-xs px-2.5 py-1 rounded-lg bg-godot-bg hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-godot-border transition-colors cursor-pointer">Ninguno</button>
+                        </div>
+                    </div>
+                    <!-- Buscador rápido -->
+                    <div class="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="fileSearchInput" placeholder="Filtrar por nombre o ruta..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-godot-bg border border-godot-border rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-godot-blue">
+                    </div>
+                </div>
+
+                <!-- Contenedor scrollable de archivos -->
+                <div id="fileListContainer" class="flex-1 overflow-y-auto p-2 space-y-1">
+                    <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mb-2 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        <p class="text-sm">Aún no has seleccionado ninguna carpeta.</p>
+                        <p class="text-xs mt-1">Aquí podrás marcar o desmarcar archivos individuales.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Vista Previa y Exportación -->
+            <div class="lg:col-span-7 bg-godot-panel border border-godot-border rounded-2xl flex flex-col shadow-lg overflow-hidden h-[540px]">
+                <div class="p-4 border-b border-godot-border flex flex-wrap items-center justify-between gap-3 bg-godot-surface/50">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">4. Vista Previa y Exportación</h2>
+                        <span id="previewNotice" class="text-[11px] text-slate-400">contexto_godot.txt</span>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="copyBtn" type="button" disabled class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-godot-bg hover:bg-slate-700 text-slate-200 border border-godot-border disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            Copiar todo
+                        </button>
+                        <button id="downloadBtn" type="button" disabled class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-godot-blue hover:bg-godot-blueHover text-white shadow-md shadow-godot-blue/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Descargar contexto_godot.txt
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Área de Vista Previa -->
+                <div class="flex-1 relative bg-godot-bg">
+                    <textarea id="previewArea" readonly spellcheck="false" class="w-full h-full p-4 bg-transparent text-slate-300 font-mono text-xs leading-relaxed resize-none focus:outline-none" placeholder="Selecciona una carpeta de proyecto de Godot para generar la vista previa del árbol de directorios y el contenido de tus archivos..."></textarea>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-godot-border/60 py-4 text-center text-xs text-slate-500">
+        Godot Context Packer — Todo el análisis y empaquetado ocurre en la memoria de tu navegador. Sin servidores ni telemetría.
+    </footer>
+
+    <!-- Contenedor de Notificaciones Toast -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        /**
+         * Estado global de la aplicación
+         */
+        const EXTENSIONS_CONFIG = [
+            { ext: '.gd', label: '.gd', desc: 'GDScript', enabled: true },
+            { ext: '.json', label: '.json', desc: 'Datos / Diálogos', enabled: true },
+            { ext: '.tscn', label: '.tscn', desc: 'Escenas', enabled: true },
+            { ext: '.tres', label: '.tres', desc: 'Recursos', enabled: true },
+            { ext: '.godot', label: '.godot', desc: 'Configuración', enabled: true },
+            { ext: '.cfg', label: '.cfg', desc: 'Ajustes', enabled: false },
+            { ext: '.md', label: '.md', desc: 'Documentación', enabled: false },
+            { ext: '.gdshader', label: '.gdshader', desc: 'Shaders', enabled: false },
+        ];
+
+        const ALWAYS_IGNORED_DIRS = new Set(['.godot', '.git', '.import', '__pycache__', 'node_modules']);
+        const MAX_PREVIEW_CHARS = 80000; // Límite de vista previa para mantener fluidez en la UI
+
+        let state = {
+            projectName: '',
+            allFiles: [], // { path, ext, rawContent, cleanedContent, sizeBytes, selected, inAddons }
+            extensions: {},
+            includeAddons: false,
+            cleanTscn: true,
+            searchQuery: '',
+            generatedOutput: ''
+        };
+
+        // Inicializar mapa de extensiones
+        EXTENSIONS_CONFIG.forEach(item => {
+            state.extensions[item.ext] = item.enabled;
+        });
+
+        // Referencias al DOM
+        const folderInput = document.getElementById('folderInput');
+        const selectFolderBtn = document.getElementById('selectFolderBtn');
+        const selectedFolderName = document.getElementById('selectedFolderName');
+        const extensionsContainer = document.getElementById('extensionsContainer');
+        const cleanTscnCheckbox = document.getElementById('cleanTscnCheckbox');
+        const includeAddonsCheckbox = document.getElementById('includeAddonsCheckbox');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const fileSearchInput = document.getElementById('fileSearchInput');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const selectNoneBtn = document.getElementById('selectNoneBtn');
+        const previewArea = document.getElementById('previewArea');
+        const previewNotice = document.getElementById('previewNotice');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Métricas DOM
+        const metricFiles = document.getElementById('metricFiles');
+        const metricTotalDetected = document.getElementById('metricTotalDetected');
+        const metricSize = document.getElementById('metricSize');
+        const metricTokens = document.getElementById('metricTokens');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const tokenProgressBar = document.getElementById('tokenProgressBar');
+
+        /**
+         * Renderiza los checkboxes de extensiones
+         */
+        function renderExtensionFilters() {
+            extensionsContainer.innerHTML = '';
+            EXTENSIONS_CONFIG.forEach(item => {
+                const isChecked = state.extensions[item.ext];
+                const label = document.createElement('label');
+                label.className = `inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium cursor-pointer select-none transition-all ${
+                    isChecked
+                        ? 'bg-godot-blue/20 border-godot-blue text-white'
+                        : 'bg-godot-bg border-godot-border text-slate-400 hover:border-slate-500'
+                }`;
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = isChecked;
+                checkbox.className = 'w-3.5 h-3.5 rounded border-slate-500 bg-godot-bg text-godot-blue focus:ring-godot-blue cursor-pointer';
+                checkbox.addEventListener('change', (e) => {
+                    state.extensions[item.ext] = e.target.checked;
+                    renderExtensionFilters();
+                    updateUI();
+                });
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'font-mono';
+                textSpan.textContent = item.label;
+
+                label.appendChild(checkbox);
+                label.appendChild(textSpan);
+                label.title = item.desc;
+                extensionsContainer.appendChild(label);
+            });
+        }
+
+        /**
+         * Limpiador inteligente para archivos .tscn y .tres
+         * Elimina líneas extremadamente largas (> 500 caracteres) de datos serializados/binarios
+         */
+        function cleanGodotResource(content) {
+            const lines = content.split(/\r?\n/);
+            let omittedCount = 0;
+            const cleanedLines = lines.map(line => {
+                if (line.length > 500) {
+                    omittedCount++;
+                    return `# [Línea larga de datos serializados omitida para ahorrar tokens (${line.length} caracteres)]`;
+                }
+                return line;
+            });
+            return cleanedLines.join('\n');
+        }
+
+        /**
+         * Obtiene la extensión de un archivo en minúsculas
+         */
+        function getExtension(filename) {
+            const lastDot = filename.lastIndexOf('.');
+            if (lastDot === -1) return '';
+            return filename.slice(lastDot).toLowerCase();
+        }
+
+        /**
+         * Verifica si una ruta pertenece a una carpeta ignorada
+         */
+        function analyzePath(relativePath) {
+            const parts = relativePath.split('/');
+            // Ignoramos el primer elemento (nombre de la carpeta raíz) y el último (nombre del archivo)
+            const dirParts = parts.slice(1, -1);
+            let alwaysIgnored = false;
+            let inAddons = false;
+
+            for (const dir of dirParts) {
+                if (ALWAYS_IGNORED_DIRS.has(dir)) {
+                    alwaysIgnored = true;
+                }
+                if (dir === 'addons') {
+                    inAddons = true;
+                }
+            }
+            return { alwaysIgnored, inAddons };
+        }
+
+        /**
+         * Procesa los archivos seleccionados de la carpeta
+         */
+        async function handleFolderSelection(fileList) {
+            if (!fileList || fileList.length === 0) return;
+
+            const filesArray = Array.from(fileList);
+            const firstPath = filesArray[0].webkitRelativePath || filesArray[0].name;
+            state.projectName = firstPath.split('/')[0] || 'Proyecto Godot';
+            selectedFolderName.textContent = `Carpeta cargada: ${state.projectName}`;
+            selectedFolderName.classList.remove('text-slate-400');
+            selectedFolderName.classList.add('text-godot-blueHover', 'font-medium');
+
+            // Filtrar solo archivos con extensiones soportadas y fuera de carpetas siempre ignoradas
+            const supportedExts = new Set(EXTENSIONS_CONFIG.map(e => e.ext));
+            const candidateFiles = [];
+
+            for (const file of filesArray) {
+                const relPath = file.webkitRelativePath || file.name;
+                const ext = getExtension(file.name);
+                if (!supportedExts.has(ext)) continue;
+
+                const { alwaysIgnored, inAddons } = analyzePath(relPath);
+                if (alwaysIgnored) continue;
+
+                candidateFiles.push({ file, relPath, ext, inAddons });
+            }
+
+            // Ordenar alfabéticamente por ruta
+            candidateFiles.sort((a, b) => a.relPath.localeCompare(b.relPath));
+
+            // Leer contenido de los archivos localmente
+            const processedFiles = [];
+            for (const item of candidateFiles) {
+                try {
+                    const rawContent = await item.file.text();
+                    const cleanedContent = (item.ext === '.tscn' || item.ext === '.tres')
+                        ? cleanGodotResource(rawContent)
+                        : rawContent;
+
+                    processedFiles.push({
+                        path: item.relPath,
+                        ext: item.ext,
+                        rawContent,
+                        cleanedContent,
+                        selected: true,
+                        inAddons: item.inAddons
+                    });
+                } catch (err) {
+                    console.error(`Error leyendo ${item.relPath}:`, err);
+                }
+            }
+
+            state.allFiles = processedFiles;
+            updateUI();
+            showToast(`Proyecto "${state.projectName}" analizado (${processedFiles.length} archivos compatibles).`, 'info');
+        }
+
+        /**
+         * Devuelve los archivos visibles según filtros de extensión y carpeta addons
+         */
+        function getFilteredFiles() {
+            return state.allFiles.filter(f => {
+                if (!state.extensions[f.ext]) return false;
+                if (f.inAddons && !state.includeAddons) return false;
+                return true;
+            });
+        }
+
+        /**
+         * Obtiene el contenido efectivo de un archivo según si el limpiador está activo
+         */
+        function getEffectiveContent(fileObj) {
+            if (state.cleanTscn && (fileObj.ext === '.tscn' || fileObj.ext === '.tres')) {
+                return fileObj.cleanedContent;
+            }
+            return fileObj.rawContent;
+        }
+
+        /**
+         * Construye un árbol de directorios en texto plano a partir de las rutas incluidas
+         */
+        function buildDirectoryTree(paths) {
+            if (paths.length === 0) return '(Sin archivos seleccionados)';
+            const tree = {};
+
+            paths.forEach(p => {
+                const parts = p.split('/');
+                let current = tree;
+                parts.forEach((part, idx) => {
+                    if (!current[part]) {
+                        current[part] = idx === parts.length - 1 ? null : {};
+                    }
+                    current = current[part];
+                });
+            });
+
+            let result = '';
+            function renderNode(node, prefix = '') {
+                const keys = Object.keys(node).sort((a, b) => {
+                    const aIsDir = node[a] !== null;
+                    const bIsDir = node[b] !== null;
+                    if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+                    return a.localeCompare(b);
+                });
+
+                keys.forEach((key, index) => {
+                    const isLast = index === keys.length - 1;
+                    const connector = isLast ? '└── ' : '├── ';
+                    const isDir = node[key] !== null;
+                    result += `${prefix}${connector}${key}${isDir ? '/' : ''}\n`;
+                    if (isDir) {
+                        renderNode(node[key], prefix + (isLast ? '    ' : '│   '));
+                    }
+                });
+            }
+
+            renderNode(tree);
+            return result.trimEnd();
+        }
+
+        /**
+         * Actualiza lista de archivos, métricas y vista previa
+         */
+        function updateUI() {
+            const filtered = getFilteredFiles();
+            const included = filtered.filter(f => f.selected);
+
+            // 1. Renderizar lista de archivos
+            renderFileList(filtered);
+
+            // 2. Generar texto completo
+            if (included.length === 0) {
+                state.generatedOutput = '';
+                previewArea.value = '';
+                previewNotice.textContent = 'contexto_godot.txt (vacío)';
+                copyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                updateMetrics(0, filtered.length, 0, 0);
+                return;
+            }
+
+            const treeStr = buildDirectoryTree(included.map(f => f.path));
+            let outputParts = [
+                `=== ESTRUCTURA DEL PROYECTO GODOT (${state.projectName}) ===\n`,
+                treeStr,
+                `\n\n==================================================\n`,
+                `=== CONTENIDO DE ARCHIVOS (${included.length} archivos) ===\n`,
+                `==================================================\n`
+            ];
+
+            for (const f of included) {
+                const content = getEffectiveContent(f);
+                outputParts.push(`\n--- INICIO ARCHIVO: ${f.path} ---\n`);
+                outputParts.push(content);
+                if (!content.endsWith('\n')) outputParts.push('\n');
+                outputParts.push(`--- FIN ARCHIVO: ${f.path} ---\n`);
+            }
+
+            state.generatedOutput = outputParts.join('');
+
+            // 3. Actualizar Vista Previa (truncada si es enorme para no ralentizar el DOM)
+            if (state.generatedOutput.length > MAX_PREVIEW_CHARS) {
+                previewArea.value = state.generatedOutput.slice(0, MAX_PREVIEW_CHARS) +
+                    `\n\n... [Vista previa truncada en ${MAX_PREVIEW_CHARS.toLocaleString()} caracteres para mantener la fluidez. Al descargar o copiar se incluirá el 100% del archivo] ...`;
+                previewNotice.textContent = `contexto_godot.txt (vista previa parcial — descarga/copia completa)`;
+            } else {
+                previewArea.value = state.generatedOutput;
+                previewNotice.textContent = `contexto_godot.txt (vista previa completa)`;
+            }
+
+            copyBtn.disabled = false;
+            downloadBtn.disabled = false;
+
+            // 4. Calcular métricas
+            const totalChars = state.generatedOutput.length;
+            const totalBytes = new Blob([state.generatedOutput]).size;
+            const estimatedTokens = Math.ceil(totalChars / 4);
+            updateMetrics(included.length, filtered.length, totalBytes, estimatedTokens);
+        }
+
+        /**
+         * Renderiza la lista interactiva de archivos detectados
+         */
+        function renderFileList(filteredFiles) {
+            const query = state.searchQuery.trim().toLowerCase();
+            const visibleFiles = query
+                ? filteredFiles.filter(f => f.path.toLowerCase().includes(query))
+                : filteredFiles;
+
+            if (state.allFiles.length === 0) return;
+
+            if (visibleFiles.length === 0) {
+                fileListContainer.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                        <p class="text-sm">No hay archivos que coincidan con los filtros actuales.</p>
+                    </div>`;
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            visibleFiles.forEach(fileObj => {
+                const content = getEffectiveContent(fileObj);
+                const sizeKB = (new Blob([content]).size / 1024).toFixed(1);
+
+                const row = document.createElement('label');
+                row.className = `flex items-center justify-between gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
+                    fileObj.selected
+                        ? 'bg-godot-bg/80 hover:bg-godot-bg border border-godot-border/60'
+                        : 'opacity-50 hover:opacity-80 hover:bg-godot-bg/40 border border-transparent'
+                }`;
+
+                const left = document.createElement('div');
+                left.className = 'flex items-center gap-2.5 min-w-0';
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = fileObj.selected;
+                cb.className = 'w-4 h-4 rounded border-slate-500 bg-godot-panel text-godot-blue focus:ring-godot-blue shrink-0 cursor-pointer';
+                cb.addEventListener('change', (e) => {
+                    fileObj.selected = e.target.checked;
+                    updateUI();
+                });
+
+                const pathSpan = document.createElement('span');
+                pathSpan.className = 'text-xs font-mono text-slate-200 truncate';
+                pathSpan.textContent = fileObj.path;
+                pathSpan.title = fileObj.path;
+
+                left.appendChild(cb);
+                left.appendChild(pathSpan);
+
+                const right = document.createElement('span');
+                right.className = 'text-[11px] font-mono text-slate-400 shrink-0 bg-godot-panel px-2 py-0.5 rounded-md border border-godot-border/50';
+                right.textContent = `${sizeKB} KB`;
+
+                row.appendChild(left);
+                row.appendChild(right);
+                fragment.appendChild(row);
+            });
+
+            fileListContainer.innerHTML = '';
+            fileListContainer.appendChild(fragment);
+        }
+
+        /**
+         * Actualiza el panel de métricas y el indicador visual de tokens
+         */
+        function updateMetrics(includedCount, filteredCount, bytes, tokens) {
+            metricFiles.textContent = includedCount.toLocaleString();
+            metricTotalDetected.textContent = `/ ${filteredCount.toLocaleString()}`;
+
+            if (bytes >= 1024 * 1024) {
+                metricSize.textContent = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+            } else {
+                metricSize.textContent = `${(bytes / 1024).toFixed(1)} KB`;
+            }
+
+            metricTokens.textContent = tokens.toLocaleString();
+
+            // Porcentaje de barra (300k = 100%)
+            const pct = Math.min(100, (tokens / 300000) * 100);
+            tokenProgressBar.style.width = `${pct}%`;
+
+            if (includedCount === 0) {
+                statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-700/60 text-slate-300 border border-slate-600';
+                statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+                statusText.textContent = 'Sin archivos seleccionados';
+                tokenProgressBar.className = 'h-full bg-slate-500 transition-all duration-300 rounded-full';
+            } else if (tokens < 100000) {
+                statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+                statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+                statusText.textContent = 'Óptimo para IA';
+                tokenProgressBar.className = 'h-full bg-emerald-500 transition-all duration-300 rounded-full';
+            } else if (tokens <= 300000) {
+                statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30';
+                statusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                statusText.textContent = 'Proyecto grande';
+                tokenProgressBar.className = 'h-full bg-amber-400 transition-all duration-300 rounded-full';
+            } else {
+                statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30';
+                statusDot.className = 'w-2 h-2 rounded-full bg-rose-400 animate-pulse';
+                statusText.textContent = 'Muy grande, desactiva .tscn';
+                tokenProgressBar.className = 'h-full bg-rose-500 transition-all duration-300 rounded-full';
+            }
+        }
+
+        /**
+         * Muestra una notificación Toast temporal
+         */
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-emerald-600/95 border-emerald-400/50 text-white',
+                info: 'bg-godot-blue/95 border-godot-blueHover/50 text-white',
+                error: 'bg-rose-600/95 border-rose-400/50 text-white'
+            };
+
+            toast.className = `toast-enter pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-xl text-sm font-medium ${colors[type] || colors.info}`;
+            toast.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(() => toast.remove(), 250);
+            }, 3000);
+        }
+
+        /**
+         * Copia el contenido completo al portapapeles usando document.execCommand('copy')
+         */
+        function copyToClipboard() {
+            if (!state.generatedOutput) return;
+            try {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = state.generatedOutput;
+                tempTextarea.style.position = 'fixed';
+                tempTextarea.style.left = '-9999px';
+                tempTextarea.style.top = '0';
+                document.body.appendChild(tempTextarea);
+                tempTextarea.focus();
+                tempTextarea.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+
+                if (ok) {
+                    showToast('¡Contexto copiado al portapapeles!', 'success');
+                } else {
+                    showToast('No se pudo copiar automáticamente. Usa el botón de descarga.', 'error');
+                }
+            } catch (err) {
+                showToast('Error al copiar. Usa el botón de descarga.', 'error');
+            }
+        }
+
+        /**
+         * Descarga el archivo contexto_godot.txt
+         */
+        function downloadContextFile() {
+            if (!state.generatedOutput) return;
+            const blob = new Blob([state.generatedOutput], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'contexto_godot.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Descargando contexto_godot.txt...', 'success');
+        }
+
+        // Eventos
+        selectFolderBtn.addEventListener('click', () => folderInput.click());
+        folderInput.addEventListener('change', (e) => handleFolderSelection(e.target.files));
+
+        cleanTscnCheckbox.addEventListener('change', (e) => {
+            state.cleanTscn = e.target.checked;
+            updateUI();
+        });
+
+        includeAddonsCheckbox.addEventListener('change', (e) => {
+            state.includeAddons = e.target.checked;
+            updateUI();
+        });
+
+        fileSearchInput.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            renderFileList(getFilteredFiles());
+        });
+
+        selectAllBtn.addEventListener('click', () => {
+            getFilteredFiles().forEach(f => f.selected = true);
+            updateUI();
+        });
+
+        selectNoneBtn.addEventListener('click', () => {
+            getFilteredFiles().forEach(f => f.selected = false);
+            updateUI();
+        });
+
+        copyBtn.addEventListener('click', copyToClipboard);
+        downloadBtn.addEventListener('click', downloadContextFile);
+
+        // Inicialización
+        renderExtensionFilters();
+    </script>
+</body>
+</html>
